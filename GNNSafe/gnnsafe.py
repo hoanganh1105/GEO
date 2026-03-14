@@ -24,6 +24,8 @@ class GNNSafe(nn.Module):
                         num_layers=args.num_layers,
                         dropout=args.dropout,
                         use_bn=args.use_bn)
+        elif args.backbone == 'gen': 
+            self.encoder = GEN(in_channels=d, hidden_channels=args.hidden_channels, out_channels=c, num_layers=args.num_layers, dropout=args.dropout, use_bn=args.use_bn)
         elif args.backbone == 'mlp':
             self.encoder = MLP(in_channels=d, hidden_channels=args.hidden_channels,
                         out_channels=c, num_layers=args.num_layers,
