@@ -1,0 +1,8 @@
+Backbone & Model,cora (structure),cora (feature),cora (label),amazon-photo (structure),amazon-photo (feature),amazon-photo (label),coauthor-cs (structure),coauthor-cs (feature),coauthor-cs (label),arxiv (structure)
+GCN - 1. MSP (No - No - No),62.77,50.59,85.86,78.70,50.08,41.26,35.81,49.73,49.25,55.24
+GCN - 2. (No - No - Yes),70.92,87.70,39.76,53.39,55.28,30.23,82.65,91.26,30.96,55.69
+GCN - 3. (No - Yes - Yes),72.63,88.78,52.97,56.76,84.03,26.92,84.57,92.98,22.39,57.68
+GCN - 4. (Yes - No - Yes),87.34,94.63,33.47,93.47,84.86,31.76,93.11,96.39,29.74,65.81
+GCN - 5. GNNSafe++ (Yes - Yes - No),89.92,95.07,91.63,99.74,99.57,97.07,99.87,99.87,97.85,68.77
+GCN - 6. GEO Full (Yes - Yes - Yes),88.93,96.00,69.49,93.92,86.71,87.12,94.21,97.02,62.24,66.68
+        
