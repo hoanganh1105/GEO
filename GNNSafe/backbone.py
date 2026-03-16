@@ -647,62 +647,114 @@ class GPRGNN(nn.Module):
             x = self.prop1(x, edge_index)
             return x
 
+# class GEN(nn.Module):
+#     def __init__(self, in_channels, hidden_channels, out_channels, num_layers=2, dropout=0.0, use_bn=True):
+#         super(GEN, self).__init__()
+#         self.convs = nn.ModuleList()
+#         self.bns = nn.ModuleList()
+#         self.use_bn = use_bn
+#         self.dropout = dropout
+
+#         # Lớp Convolution đầu tiên
+#         self.convs.append(GENConv(in_channels, hidden_channels))
+#         if self.use_bn:
+#             self.bns.append(nn.BatchNorm1d(hidden_channels))
+
+#         # Các lớp ẩn ở giữa (nếu num_layers > 2)
+#         for _ in range(num_layers - 2):
+#             self.convs.append(GENConv(hidden_channels, hidden_channels))
+#             if self.use_bn:
+#                 self.bns.append(nn.BatchNorm1d(hidden_channels))
+
+#         # Lớp Convolution cuối cùng xuất ra số lớp (classes)
+#         self.convs.append(GENConv(hidden_channels, out_channels))
+
+#     # ---- BỔ SUNG HÀM RESET TRỌNG SỐ ----
+#     def reset_parameters(self):
+#         for conv in self.convs:
+#             conv.reset_parameters()
+#         for bn in self.bns:
+#             bn.reset_parameters()
+
+#     def forward(self, x, edge_index):
+#         for i, conv in enumerate(self.convs[:-1]):
+#             x = conv(x, edge_index)
+#             if self.use_bn:
+#                 x = self.bns[i](x)
+#             x = F.relu(x)
+#             x = F.dropout(x, p=self.dropout, training=self.training)
+        
+#         # Layer cuối
+#         x = self.convs[-1](x, edge_index)
+#         return x
+
+#     # ---- BỔ SUNG HÀM LẤY EMBEDDING CHO ONE-CLASS LOSS ----
+#     def feature_list(self, x, edge_index):
+#         out_features = []
+#         for i, conv in enumerate(self.convs[:-1]):
+#             x = conv(x, edge_index)
+#             if self.use_bn:
+#                 x = self.bns[i](x)
+#             x = F.relu(x)
+#             x = F.dropout(x, p=self.dropout, training=self.training)
+#             out_features.append(x)
+        
+#         # Layer cuối
+#         x = self.convs[-1](x, edge_index)
+#         return x, out_features
+
 class GEN(nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers=2, dropout=0.0, use_bn=True):
+    def __init__(self, in_channels, hidden_channels, out_channels, num_layers=2, dropout=0.5, use_bn=True):
         super(GEN, self).__init__()
         self.convs = nn.ModuleList()
         self.bns = nn.ModuleList()
         self.use_bn = use_bn
         self.dropout = dropout
 
-        # Lớp Convolution đầu tiên
-        self.convs.append(GENConv(in_channels, hidden_channels))
+        # Cài đặt chuẩn theo ogbn-arxiv: aggr='softmax', t=0.1 VÀ KHÔNG ĐƯỢC HỌC (learn_t=False)
+        self.convs.append(
+            GENConv(in_channels, hidden_channels, aggr='softmax', t=0.1, learn_t=False, msg_norm=False)
+        )
         if self.use_bn:
             self.bns.append(nn.BatchNorm1d(hidden_channels))
 
-        # Các lớp ẩn ở giữa (nếu num_layers > 2)
-        for _ in range(num_layers - 2):
-            self.convs.append(GENConv(hidden_channels, hidden_channels))
-            if self.use_bn:
-                self.bns.append(nn.BatchNorm1d(hidden_channels))
+        self.convs.append(
+            GENConv(hidden_channels, out_channels, aggr='softmax', t=0.1, learn_t=False, msg_norm=False)
+        )
 
-        # Lớp Convolution cuối cùng xuất ra số lớp (classes)
-        self.convs.append(GENConv(hidden_channels, out_channels))
-
-    # ---- BỔ SUNG HÀM RESET TRỌNG SỐ ----
     def reset_parameters(self):
         for conv in self.convs:
             conv.reset_parameters()
-        for bn in self.bns:
-            bn.reset_parameters()
+        if self.use_bn:
+            for bn in self.bns:
+                bn.reset_parameters()
 
     def forward(self, x, edge_index):
-        for i, conv in enumerate(self.convs[:-1]):
-            x = conv(x, edge_index)
-            if self.use_bn:
-                x = self.bns[i](x)
-            x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
+        # Layer 1
+        x = self.convs[0](x, edge_index)
         
-        # Layer cuối
-        x = self.convs[-1](x, edge_index)
+        # Pre-activation / Xử lý layer giữa
+        if self.use_bn:
+            x = self.bns[0](x)
+        x = F.relu(x)
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        
+        # Layer 2 (Output logits)
+        x = self.convs[1](x, edge_index)
         return x
 
-    # ---- BỔ SUNG HÀM LẤY EMBEDDING CHO ONE-CLASS LOSS ----
     def feature_list(self, x, edge_index):
         out_features = []
-        for i, conv in enumerate(self.convs[:-1]):
-            x = conv(x, edge_index)
-            if self.use_bn:
-                x = self.bns[i](x)
-            x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
-            out_features.append(x)
+        x = self.convs[0](x, edge_index)
         
-        # Layer cuối
-        x = self.convs[-1](x, edge_index)
-        return x, out_features
-
+        if self.use_bn:
+            x = self.bns[0](x)
+        x = F.relu(x)
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        
+        out_features.append(x)
+        last_logits = self.convs[1](x, edge_index)
+        return last_logits, out_features
 if __name__ == '__main__':
     a = torch.ones((3,4))
     print(len(a.shape))
