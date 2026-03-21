@@ -804,82 +804,177 @@ class GPRGNN(nn.Module):
         
 #         return self.convs[-1](x, edge_index), out_features
 
+# class GEN(nn.Module):
+#     def __init__(self, in_channels, hidden_channels, out_channels, num_layers=3, dropout=0.5, use_bn=True): 
+#         super(GEN, self).__init__()
+#         self.use_bn = False
+#         self.dropout = dropout
+
+#         # BẮT BUỘC: Lớp Linear đầu tiên để đồng nhất số chiều cho Residual Connection
+#         self.node_encoder = nn.Linear(in_channels, hidden_channels)
+
+#         self.convs = nn.ModuleList()
+#         self.bns = nn.ModuleList()
+
+#         # Tạo các Layer ẩn (Lưu ý: số lượng convs sẽ là num_layers - 1)
+#         for _ in range(num_layers - 1):
+#             # MỞ KHÓA learn_t=True và learn_msg_scale=True để model tự thích nghi OOD
+#             self.convs.append(GENConv(hidden_channels, hidden_channels, aggr='softmax', 
+#                                       t=1.0, learn_t=True, msg_norm=True, learn_msg_scale=True))
+#             if self.use_bn: 
+#                 self.bns.append(nn.BatchNorm1d(hidden_channels))
+
+#         # Layer Output (Layer cuối cùng xuất ra out_channels)
+#         self.conv_out = GENConv(hidden_channels, out_channels, aggr='softmax', 
+#                                 t=1.0, learn_t=True, msg_norm=True, learn_msg_scale=True)
+
+#     def reset_parameters(self):
+#         self.node_encoder.reset_parameters()
+#         for conv in self.convs:
+#             conv.reset_parameters()
+#         self.conv_out.reset_parameters()
+#         if self.use_bn:
+#             for bn in self.bns:
+#                 bn.reset_parameters()
+
+#     def forward(self, x, edge_index):
+#         # 1. Chiếu feature vào không gian hidden
+#         x = self.node_encoder(x)
+
+#         # 2. Các lớp Message Passing chuẩn Pre-activation + Residual
+#         for i, conv in enumerate(self.convs):
+#             x_residual = x  # Nhớ mặt x gốc
+            
+#             # Thứ tự chuẩn: Norm -> ReLU -> Dropout -> Conv -> Residual
+#             if self.use_bn: x = self.bns[i](x)
+#             x = F.relu(x)
+#             x = F.dropout(x, p=self.dropout, training=self.training)
+#             x = conv(x, edge_index)
+            
+#             x = x + x_residual  # CỘNG DỒN RESIDUAL (Chìa khóa SOTA)
+
+#         # 3. Layer cuối cùng (Thường không dùng Residual để ra đúng out_channels)
+#         if self.use_bn: x = self.bns[-1](x) if len(self.bns) > 0 else x
+#         x = F.relu(x)
+#         x = F.dropout(x, p=self.dropout, training=self.training)
+        
+#         return self.conv_out(x, edge_index)
+
+#     def feature_list(self, x, edge_index):
+#         out_features = []
+#         x = self.node_encoder(x)
+        
+#         for i, conv in enumerate(self.convs):
+#             x_residual = x
+#             if self.use_bn: x = self.bns[i](x)
+#             x = F.relu(x)
+#             x = F.dropout(x, p=self.dropout, training=self.training)
+#             x = conv(x, edge_index)
+#             x = x + x_residual
+#             out_features.append(x) # Thu thập feature ẩn
+            
+#         if self.use_bn: x = self.bns[-1](x) if len(self.bns) > 0 else x
+#         x = F.relu(x)
+#         x = F.dropout(x, p=self.dropout, training=self.training)
+        
+#         # Hàm detect() sẽ lấy output cuối và list feature
+#         return self.conv_out(x, edge_index), out_features
 class GEN(nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers=3, dropout=0.5, use_bn=True): 
+    def __init__(
+        self,
+        in_channels,
+        hidden_channels,
+        out_channels,
+        num_layers=3,
+        dropout=0.3
+    ):
         super(GEN, self).__init__()
-        self.use_bn = use_bn
+
         self.dropout = dropout
 
-        # BẮT BUỘC: Lớp Linear đầu tiên để đồng nhất số chiều cho Residual Connection
+        # Input projection
         self.node_encoder = nn.Linear(in_channels, hidden_channels)
 
         self.convs = nn.ModuleList()
-        self.bns = nn.ModuleList()
 
-        # Tạo các Layer ẩn (Lưu ý: số lượng convs sẽ là num_layers - 1)
+        # Hidden layers
         for _ in range(num_layers - 1):
-            # MỞ KHÓA learn_t=True và learn_msg_scale=True để model tự thích nghi OOD
-            self.convs.append(GENConv(hidden_channels, hidden_channels, aggr='softmax', 
-                                      t=1.0, learn_t=True, msg_norm=True, learn_msg_scale=True))
-            if self.use_bn: 
-                self.bns.append(nn.BatchNorm1d(hidden_channels))
+            self.convs.append(
+                GENConv(
+                    hidden_channels,
+                    hidden_channels,
+                    aggr='softmax',
+                    t=1.0,
+                    learn_t=True,
+                    msg_norm=True,
+                    learn_msg_scale=True
+                )
+            )
 
-        # Layer Output (Layer cuối cùng xuất ra out_channels)
-        self.conv_out = GENConv(hidden_channels, out_channels, aggr='softmax', 
-                                t=1.0, learn_t=True, msg_norm=True, learn_msg_scale=True)
+        # Output layer
+        self.conv_out = GENConv(
+            hidden_channels,
+            out_channels,
+            aggr='softmax',
+            t=1.0,
+            learn_t=True,
+            msg_norm=True,
+            learn_msg_scale=True
+        )
 
     def reset_parameters(self):
         self.node_encoder.reset_parameters()
         for conv in self.convs:
             conv.reset_parameters()
         self.conv_out.reset_parameters()
-        if self.use_bn:
-            for bn in self.bns:
-                bn.reset_parameters()
 
     def forward(self, x, edge_index):
-        # 1. Chiếu feature vào không gian hidden
+        # Encode input
         x = self.node_encoder(x)
 
-        # 2. Các lớp Message Passing chuẩn Pre-activation + Residual
-        for i, conv in enumerate(self.convs):
-            x_residual = x  # Nhớ mặt x gốc
-            
-            # Thứ tự chuẩn: Norm -> ReLU -> Dropout -> Conv -> Residual
-            if self.use_bn: x = self.bns[i](x)
+        # Hidden layers (Pre-activation + Residual)
+        for conv in self.convs:
+            x_res = x
+
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
-            x = conv(x, edge_index)
-            
-            x = x + x_residual  # CỘNG DỒN RESIDUAL (Chìa khóa SOTA)
 
-        # 3. Layer cuối cùng (Thường không dùng Residual để ra đúng out_channels)
-        if self.use_bn: x = self.bns[-1](x) if len(self.bns) > 0 else x
+            x = conv(x, edge_index)
+
+            # Residual
+            x = x + x_res
+
+        # Final layer
         x = F.relu(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
-        
-        return self.conv_out(x, edge_index)
+
+        out = self.conv_out(x, edge_index)
+
+        return out
 
     def feature_list(self, x, edge_index):
         out_features = []
+
         x = self.node_encoder(x)
-        
-        for i, conv in enumerate(self.convs):
-            x_residual = x
-            if self.use_bn: x = self.bns[i](x)
+
+        for conv in self.convs:
+            x_res = x
+
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
+
             x = conv(x, edge_index)
-            x = x + x_residual
-            out_features.append(x) # Thu thập feature ẩn
-            
-        if self.use_bn: x = self.bns[-1](x) if len(self.bns) > 0 else x
+
+            x = x + x_res
+
+            out_features.append(x)
+
         x = F.relu(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
-        
-        # Hàm detect() sẽ lấy output cuối và list feature
-        return self.conv_out(x, edge_index), out_features
 
+        out = self.conv_out(x, edge_index)
+
+        return out, out_features
 if __name__ == '__main__':
     a = torch.ones((3,4))
     print(len(a.shape))

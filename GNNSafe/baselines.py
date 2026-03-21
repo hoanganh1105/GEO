@@ -22,8 +22,7 @@ class MSP(nn.Module):
                                hidden_channels=args.hidden_channels,
                                out_channels=c,
                                num_layers=args.num_layers,
-                               dropout=args.dropout,
-                               use_bn=args.use_bn)
+                               dropout=args.dropout)
         elif args.backbone == 'mlp':
             self.encoder = MLP(in_channels=d, hidden_channels=args.hidden_channels,
                                out_channels=c, num_layers=args.num_layers,
