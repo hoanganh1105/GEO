@@ -1082,7 +1082,7 @@ class GEN(nn.Module):
 
         out = self.conv_out(x, edge_index)
         
-        return out_features, out # Trả về list features và out logit
+        return  out, out_features # Trả về list features và out logit
 
 
 if __name__ == '__main__':
