@@ -1088,7 +1088,7 @@ class GEN(nn.Module):
         out = self.conv_out(x, edge_index)
         
         # 🔥 BƯỚC QUAN TRỌNG 2: Trả về out (logits) TRƯỚC, emb (embedding) SAU để tránh lỗi CUDA
-        return out, emb
+        return out, [emb]
 
 
 if __name__ == '__main__':
