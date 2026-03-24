@@ -1060,10 +1060,10 @@ class GEN(nn.Module):
         return out
 
     def feature_list(self, x, edge_index):
-        out_features = []
-
+        # Encode input node features
         x = self.node_encoder(x)
 
+        # Chạy qua các lớp ẩn (Pre-activation + Residual: Norm -> ReLU -> Drop -> Conv -> +)
         for i, conv in enumerate(self.convs):
             x_res = x
 
@@ -1072,17 +1072,23 @@ class GEN(nn.Module):
             x = F.dropout(x, p=self.dropout, training=self.training)
 
             x = conv(x, edge_index)
-            x = x + x_res
-            
-            out_features.append(x)
 
+            # Cộng Residual connection
+            x = x + x_res
+
+        # Lớp chuẩn bị cuối cùng (trước khi ra output)
         x = self.last_norm(x)
         x = F.relu(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
 
+        # 🔥 BƯỚC QUAN TRỌNG 1: L2-Normalize để khóa giới hạn khoảng cách (chống bùng nổ Loss OCC)
+        emb = F.normalize(x, p=2, dim=1)
+
+        # Đẩy qua lớp output để lấy điểm số logits
         out = self.conv_out(x, edge_index)
         
-        return  out, out_features # Trả về list features và out logit
+        # 🔥 BƯỚC QUAN TRỌNG 2: Trả về out (logits) TRƯỚC, emb (embedding) SAU để tránh lỗi CUDA
+        return out, emb
 
 
 if __name__ == '__main__':
