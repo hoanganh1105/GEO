@@ -879,14 +879,111 @@ class GPRGNN(nn.Module):
         
 #         # Hàm detect() sẽ lấy output cuối và list feature
 #         return self.conv_out(x, edge_index), out_features
+# class GEN(nn.Module):
+#     def __init__(
+#         self,
+#         in_channels,
+#         hidden_channels,
+#         out_channels,
+#         num_layers=3,
+#         dropout=0.3
+#     ):
+#         super(GEN, self).__init__()
+
+#         self.dropout = dropout
+
+#         # Input projection
+#         self.node_encoder = nn.Linear(in_channels, hidden_channels)
+
+#         self.convs = nn.ModuleList()
+
+#         # Hidden layers
+#         for _ in range(num_layers - 1):
+#             self.convs.append(
+#                 GENConv(
+#                     hidden_channels,
+#                     hidden_channels,
+#                     aggr='softmax',
+#                     t=1.0,
+#                     learn_t=True,
+#                     msg_norm=True,
+#                     learn_msg_scale=True
+#                 )
+#             )
+
+#         # Output layer
+#         self.conv_out = GENConv(
+#             hidden_channels,
+#             out_channels,
+#             aggr='softmax',
+#             t=1.0,
+#             learn_t=True,
+#             msg_norm=True,
+#             learn_msg_scale=True
+#         )
+
+#     def reset_parameters(self):
+#         self.node_encoder.reset_parameters()
+#         for conv in self.convs:
+#             conv.reset_parameters()
+#         self.conv_out.reset_parameters()
+
+#     def forward(self, x, edge_index):
+#         # Encode input
+#         x = self.node_encoder(x)
+
+#         # Hidden layers (Pre-activation + Residual)
+#         for conv in self.convs:
+#             x_res = x
+
+#             x = F.relu(x)
+#             x = F.dropout(x, p=self.dropout, training=self.training)
+
+#             x = conv(x, edge_index)
+
+#             # Residual
+#             x = x + x_res
+
+#         # Final layer
+#         x = F.relu(x)
+#         x = F.dropout(x, p=self.dropout, training=self.training)
+
+#         out = self.conv_out(x, edge_index)
+
+#         return out
+
+#     def feature_list(self, x, edge_index):
+#         out_features = []
+
+#         x = self.node_encoder(x)
+
+#         for conv in self.convs:
+#             x_res = x
+
+#             x = F.relu(x)
+#             x = F.dropout(x, p=self.dropout, training=self.training)
+
+#             x = conv(x, edge_index)
+
+#             x = x + x_res
+
+#             out_features.append(x)
+
+#         x = F.relu(x)
+#         x = F.dropout(x, p=self.dropout, training=self.training)
+
+#         out = self.conv_out(x, edge_index)
+
+#         return out, out_features
+
 class GEN(nn.Module):
     def __init__(
         self,
         in_channels,
         hidden_channels,
         out_channels,
-        num_layers=3,
-        dropout=0.3
+        num_layers=2,   # Sửa lại mặc định là 2 lớp theo paper
+        dropout=0.5     # Sửa lại 0.5 theo paper
     ):
         super(GEN, self).__init__()
 
@@ -896,6 +993,7 @@ class GEN(nn.Module):
         self.node_encoder = nn.Linear(in_channels, hidden_channels)
 
         self.convs = nn.ModuleList()
+        self.norms = nn.ModuleList() # BẮT BUỘC PHẢI CÓ BATCH NORM
 
         # Hidden layers
         for _ in range(num_layers - 1):
@@ -910,6 +1008,8 @@ class GEN(nn.Module):
                     learn_msg_scale=True
                 )
             )
+            # Thêm BatchNorm cho mỗi hidden layer
+            self.norms.append(nn.BatchNorm1d(hidden_channels))
 
         # Output layer
         self.conv_out = GENConv(
@@ -921,21 +1021,27 @@ class GEN(nn.Module):
             msg_norm=True,
             learn_msg_scale=True
         )
+        # Thêm BatchNorm trước layer cuối
+        self.last_norm = nn.BatchNorm1d(hidden_channels)
 
     def reset_parameters(self):
         self.node_encoder.reset_parameters()
         for conv in self.convs:
             conv.reset_parameters()
+        for norm in self.norms:
+            norm.reset_parameters()
+        self.last_norm.reset_parameters()
         self.conv_out.reset_parameters()
 
     def forward(self, x, edge_index):
         # Encode input
         x = self.node_encoder(x)
 
-        # Hidden layers (Pre-activation + Residual)
-        for conv in self.convs:
+        # Hidden layers (Pre-activation + Residual: Norm -> ReLU -> Drop -> Conv -> +)
+        for i, conv in enumerate(self.convs):
             x_res = x
 
+            x = self.norms[i](x) # Chuẩn hóa trước
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
 
@@ -944,7 +1050,8 @@ class GEN(nn.Module):
             # Residual
             x = x + x_res
 
-        # Final layer
+        # Final layer preparation
+        x = self.last_norm(x)
         x = F.relu(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
 
@@ -957,24 +1064,27 @@ class GEN(nn.Module):
 
         x = self.node_encoder(x)
 
-        for conv in self.convs:
+        for i, conv in enumerate(self.convs):
             x_res = x
 
+            x = self.norms[i](x)
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
 
             x = conv(x, edge_index)
-
             x = x + x_res
-
+            
             out_features.append(x)
 
+        x = self.last_norm(x)
         x = F.relu(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
 
         out = self.conv_out(x, edge_index)
+        
+        return out_features, out # Trả về list features và out logit
 
-        return out, out_features
+
 if __name__ == '__main__':
     a = torch.ones((3,4))
     print(len(a.shape))
