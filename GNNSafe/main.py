@@ -4,6 +4,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+_original_load = torch.load
+def _patched_load(*args, **kwargs):
+    kwargs.setdefault('weights_only', False)
+    return _original_load(*args, **kwargs)
+torch.load = _patched_load
+
 from logger import Logger_classify, Logger_detect, save_result
 from data_utils import normalize, gen_normalized_adjs, evaluate_classify, evaluate_detect, eval_acc, eval_rocauc, eval_f1, to_sparse_tensor, \
     load_fixed_splits, rand_splits, get_gpu_memory_map, count_parameters
