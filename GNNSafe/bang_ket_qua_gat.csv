@@ -1,2 +1,0 @@
-Backbone & Model,cora (structure),cora (feature),cora (label),amazon-photo (structure),amazon-photo (feature),amazon-photo (label),coauthor-cs (structure),coauthor-cs (feature),coauthor-cs (label),arxiv (structure)
-GAT - 1. MSP (No - No - No),62.27,69.44,87.36,Lỗi/OOM,Lỗi/OOM,Lỗi/OOM,Lỗi/OOM,Lỗi/OOM,Lỗi/OOM,Lỗi/OOM

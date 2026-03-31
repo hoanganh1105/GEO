@@ -64,3 +64,5 @@ def parser_add_main_args(parser):
     parser.add_argument('--beta', type=float, default=1.0, help='weight for one-class loss (beta)')
     parser.add_argument('--nu', type=float, default=0.01, help='nu parameter for one-class SVDD')
 
+    parser.add_argument('--use_mlp_fusion', action='store_true', default=False, 
+                    help='Enable MLP-based late fusion for OOD detection scores')   

@@ -86,3 +86,7 @@ msp gat
 OOD Test 1 Final AUROC: 69.44 OOD Test 1 Final AUPR: 56.99 OOD Test 1 Final FPR: 95.83
 IND Test Score: 44.70
 
+gnnsafe++ gcn
+OOD Test 1 Final AUROC: 95.11 OOD Test 1 Final AUPR: 85.16 OOD Test 1 Final FPR: 16.62
+IND Test Score: 71.10
+

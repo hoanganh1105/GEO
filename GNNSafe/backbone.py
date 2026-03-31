@@ -647,355 +647,24 @@ class GPRGNN(nn.Module):
             x = self.prop1(x, edge_index)
             return x
 
-# class GEN(nn.Module):
-#     def __init__(self, in_channels, hidden_channels, out_channels, num_layers=2, dropout=0.0, use_bn=True):
-#         super(GEN, self).__init__()
-#         self.convs = nn.ModuleList()
-#         self.bns = nn.ModuleList()
-#         self.use_bn = use_bn
-#         self.dropout = dropout
-
-#         # Lớp Convolution đầu tiên
-#         self.convs.append(GENConv(in_channels, hidden_channels))
-#         if self.use_bn:
-#             self.bns.append(nn.BatchNorm1d(hidden_channels))
-
-#         # Các lớp ẩn ở giữa (nếu num_layers > 2)
-#         for _ in range(num_layers - 2):
-#             self.convs.append(GENConv(hidden_channels, hidden_channels))
-#             if self.use_bn:
-#                 self.bns.append(nn.BatchNorm1d(hidden_channels))
-
-#         # Lớp Convolution cuối cùng xuất ra số lớp (classes)
-#         self.convs.append(GENConv(hidden_channels, out_channels))
-
-#     # ---- BỔ SUNG HÀM RESET TRỌNG SỐ ----
-#     def reset_parameters(self):
-#         for conv in self.convs:
-#             conv.reset_parameters()
-#         for bn in self.bns:
-#             bn.reset_parameters()
-
-#     def forward(self, x, edge_index):
-#         for i, conv in enumerate(self.convs[:-1]):
-#             x = conv(x, edge_index)
-#             if self.use_bn:
-#                 x = self.bns[i](x)
-#             x = F.relu(x)
-#             x = F.dropout(x, p=self.dropout, training=self.training)
-        
-#         # Layer cuối
-#         x = self.convs[-1](x, edge_index)
-#         return x
-
-#     # ---- BỔ SUNG HÀM LẤY EMBEDDING CHO ONE-CLASS LOSS ----
-#     def feature_list(self, x, edge_index):
-#         out_features = []
-#         for i, conv in enumerate(self.convs[:-1]):
-#             x = conv(x, edge_index)
-#             if self.use_bn:
-#                 x = self.bns[i](x)
-#             x = F.relu(x)
-#             x = F.dropout(x, p=self.dropout, training=self.training)
-#             out_features.append(x)
-        
-#         # Layer cuối
-#         x = self.convs[-1](x, edge_index)
-#         return x, out_features
-
-# class GEN(nn.Module):
-#     def __init__(self, in_channels, hidden_channels, out_channels, num_layers=2, dropout=0.5, use_bn=True):
-#         super(GEN, self).__init__()
-#         self.convs = nn.ModuleList()
-#         self.bns = nn.ModuleList()
-#         self.use_bn = use_bn
-#         self.dropout = dropout
-
-#         # Cài đặt chuẩn theo ogbn-arxiv: aggr='softmax', t=0.1 VÀ KHÔNG ĐƯỢC HỌC (learn_t=False)
-#         self.convs.append(
-#             GENConv(in_channels, hidden_channels, aggr='softmax', t=0.1, learn_t=False, msg_norm=False)
-#         )
-#         if self.use_bn:
-#             self.bns.append(nn.BatchNorm1d(hidden_channels))
-
-#         self.convs.append(
-#             GENConv(hidden_channels, out_channels, aggr='softmax', t=0.1, learn_t=False, msg_norm=False)
-#         )
-
-#     def reset_parameters(self):
-#         for conv in self.convs:
-#             conv.reset_parameters()
-#         if self.use_bn:
-#             for bn in self.bns:
-#                 bn.reset_parameters()
-
-#     def forward(self, x, edge_index):
-#         # Layer 1
-#         x = self.convs[0](x, edge_index)
-        
-#         # Pre-activation / Xử lý layer giữa
-#         if self.use_bn:
-#             x = self.bns[0](x)
-#         x = F.relu(x)
-#         x = F.dropout(x, p=self.dropout, training=self.training)
-        
-#         # Layer 2 (Output logits)
-#         x = self.convs[1](x, edge_index)
-#         return x
-
-#     def feature_list(self, x, edge_index):
-#         out_features = []
-#         x = self.convs[0](x, edge_index)
-        
-#         if self.use_bn:
-#             x = self.bns[0](x)
-#         x = F.relu(x)
-#         x = F.dropout(x, p=self.dropout, training=self.training)
-        
-#         out_features.append(x)
-#         last_logits = self.convs[1](x, edge_index)
-#         return last_logits, out_features
-
-
-# class GEN(nn.Module):
-#     def __init__(self, in_channels, hidden_channels, out_channels, num_layers=3, dropout=0.5, use_bn=True): # Chạy 3 layer cho Arxiv
-#         super(GEN, self).__init__()
-#         self.convs = nn.ModuleList()
-#         self.bns = nn.ModuleList()
-#         self.use_bn = use_bn
-#         self.dropout = dropout
-
-#         # Layer 1
-#         self.convs.append(GENConv(in_channels, hidden_channels, aggr='softmax', t=1.0, learn_t=False, msg_norm=True))
-#         if self.use_bn: self.bns.append(nn.BatchNorm1d(hidden_channels))
-
-#         # Layer 2 (Lớp ẩn)
-#         for _ in range(num_layers - 2):
-#             self.convs.append(GENConv(hidden_channels, hidden_channels, aggr='softmax', t=1.0, learn_t=False, msg_norm=True))
-#             if self.use_bn: self.bns.append(nn.BatchNorm1d(hidden_channels))
-
-#         # Layer Output
-#         self.convs.append(GENConv(hidden_channels, out_channels, aggr='softmax', t=1.0, learn_t=False, msg_norm=True))
-
-#     def reset_parameters(self):
-#         for conv in self.convs:
-#             conv.reset_parameters()
-#         if self.use_bn:
-#             for bn in self.bns:
-#                 bn.reset_parameters()
-
-#     def forward(self, x, edge_index):
-#         for i, conv in enumerate(self.convs[:-1]):
-#             x = conv(x, edge_index)
-#             if self.use_bn: x = self.bns[i](x)
-#             x = F.relu(x)
-#             x = F.dropout(x, p=self.dropout, training=self.training)
-        
-#         return self.convs[-1](x, edge_index)
-
-#     def feature_list(self, x, edge_index):
-#         out_features = []
-#         for i, conv in enumerate(self.convs[:-1]):
-#             x = conv(x, edge_index)
-#             if self.use_bn: x = self.bns[i](x)
-#             x = F.relu(x)
-#             x = F.dropout(x, p=self.dropout, training=self.training)
-#             out_features.append(x)
-        
-#         return self.convs[-1](x, edge_index), out_features
-
-# class GEN(nn.Module):
-#     def __init__(self, in_channels, hidden_channels, out_channels, num_layers=3, dropout=0.5, use_bn=True): 
-#         super(GEN, self).__init__()
-#         self.use_bn = False
-#         self.dropout = dropout
-
-#         # BẮT BUỘC: Lớp Linear đầu tiên để đồng nhất số chiều cho Residual Connection
-#         self.node_encoder = nn.Linear(in_channels, hidden_channels)
-
-#         self.convs = nn.ModuleList()
-#         self.bns = nn.ModuleList()
-
-#         # Tạo các Layer ẩn (Lưu ý: số lượng convs sẽ là num_layers - 1)
-#         for _ in range(num_layers - 1):
-#             # MỞ KHÓA learn_t=True và learn_msg_scale=True để model tự thích nghi OOD
-#             self.convs.append(GENConv(hidden_channels, hidden_channels, aggr='softmax', 
-#                                       t=1.0, learn_t=True, msg_norm=True, learn_msg_scale=True))
-#             if self.use_bn: 
-#                 self.bns.append(nn.BatchNorm1d(hidden_channels))
-
-#         # Layer Output (Layer cuối cùng xuất ra out_channels)
-#         self.conv_out = GENConv(hidden_channels, out_channels, aggr='softmax', 
-#                                 t=1.0, learn_t=True, msg_norm=True, learn_msg_scale=True)
-
-#     def reset_parameters(self):
-#         self.node_encoder.reset_parameters()
-#         for conv in self.convs:
-#             conv.reset_parameters()
-#         self.conv_out.reset_parameters()
-#         if self.use_bn:
-#             for bn in self.bns:
-#                 bn.reset_parameters()
-
-#     def forward(self, x, edge_index):
-#         # 1. Chiếu feature vào không gian hidden
-#         x = self.node_encoder(x)
-
-#         # 2. Các lớp Message Passing chuẩn Pre-activation + Residual
-#         for i, conv in enumerate(self.convs):
-#             x_residual = x  # Nhớ mặt x gốc
-            
-#             # Thứ tự chuẩn: Norm -> ReLU -> Dropout -> Conv -> Residual
-#             if self.use_bn: x = self.bns[i](x)
-#             x = F.relu(x)
-#             x = F.dropout(x, p=self.dropout, training=self.training)
-#             x = conv(x, edge_index)
-            
-#             x = x + x_residual  # CỘNG DỒN RESIDUAL (Chìa khóa SOTA)
-
-#         # 3. Layer cuối cùng (Thường không dùng Residual để ra đúng out_channels)
-#         if self.use_bn: x = self.bns[-1](x) if len(self.bns) > 0 else x
-#         x = F.relu(x)
-#         x = F.dropout(x, p=self.dropout, training=self.training)
-        
-#         return self.conv_out(x, edge_index)
-
-#     def feature_list(self, x, edge_index):
-#         out_features = []
-#         x = self.node_encoder(x)
-        
-#         for i, conv in enumerate(self.convs):
-#             x_residual = x
-#             if self.use_bn: x = self.bns[i](x)
-#             x = F.relu(x)
-#             x = F.dropout(x, p=self.dropout, training=self.training)
-#             x = conv(x, edge_index)
-#             x = x + x_residual
-#             out_features.append(x) # Thu thập feature ẩn
-            
-#         if self.use_bn: x = self.bns[-1](x) if len(self.bns) > 0 else x
-#         x = F.relu(x)
-#         x = F.dropout(x, p=self.dropout, training=self.training)
-        
-#         # Hàm detect() sẽ lấy output cuối và list feature
-#         return self.conv_out(x, edge_index), out_features
-# class GEN(nn.Module):
-#     def __init__(
-#         self,
-#         in_channels,
-#         hidden_channels,
-#         out_channels,
-#         num_layers=3,
-#         dropout=0.3
-#     ):
-#         super(GEN, self).__init__()
-
-#         self.dropout = dropout
-
-#         # Input projection
-#         self.node_encoder = nn.Linear(in_channels, hidden_channels)
-
-#         self.convs = nn.ModuleList()
-
-#         # Hidden layers
-#         for _ in range(num_layers - 1):
-#             self.convs.append(
-#                 GENConv(
-#                     hidden_channels,
-#                     hidden_channels,
-#                     aggr='softmax',
-#                     t=1.0,
-#                     learn_t=True,
-#                     msg_norm=True,
-#                     learn_msg_scale=True
-#                 )
-#             )
-
-#         # Output layer
-#         self.conv_out = GENConv(
-#             hidden_channels,
-#             out_channels,
-#             aggr='softmax',
-#             t=1.0,
-#             learn_t=True,
-#             msg_norm=True,
-#             learn_msg_scale=True
-#         )
-
-#     def reset_parameters(self):
-#         self.node_encoder.reset_parameters()
-#         for conv in self.convs:
-#             conv.reset_parameters()
-#         self.conv_out.reset_parameters()
-
-#     def forward(self, x, edge_index):
-#         # Encode input
-#         x = self.node_encoder(x)
-
-#         # Hidden layers (Pre-activation + Residual)
-#         for conv in self.convs:
-#             x_res = x
-
-#             x = F.relu(x)
-#             x = F.dropout(x, p=self.dropout, training=self.training)
-
-#             x = conv(x, edge_index)
-
-#             # Residual
-#             x = x + x_res
-
-#         # Final layer
-#         x = F.relu(x)
-#         x = F.dropout(x, p=self.dropout, training=self.training)
-
-#         out = self.conv_out(x, edge_index)
-
-#         return out
-
-#     def feature_list(self, x, edge_index):
-#         out_features = []
-
-#         x = self.node_encoder(x)
-
-#         for conv in self.convs:
-#             x_res = x
-
-#             x = F.relu(x)
-#             x = F.dropout(x, p=self.dropout, training=self.training)
-
-#             x = conv(x, edge_index)
-
-#             x = x + x_res
-
-#             out_features.append(x)
-
-#         x = F.relu(x)
-#         x = F.dropout(x, p=self.dropout, training=self.training)
-
-#         out = self.conv_out(x, edge_index)
-
-#         return out, out_features
-
 class GEN(nn.Module):
     def __init__(
         self,
         in_channels,
         hidden_channels,
         out_channels,
-        num_layers=2,   # Sửa lại mặc định là 2 lớp theo paper
-        dropout=0.5     # Sửa lại 0.5 theo paper
+        num_layers=2,
+        dropout=0.5
     ):
         super(GEN, self).__init__()
 
         self.dropout = dropout
 
-        # Input projection
         self.node_encoder = nn.Linear(in_channels, hidden_channels)
 
         self.convs = nn.ModuleList()
-        self.norms = nn.ModuleList() # BẮT BUỘC PHẢI CÓ BATCH NORM
+        self.norms = nn.ModuleList()
 
-        # Hidden layers
         for _ in range(num_layers - 1):
             self.convs.append(
                 GENConv(
@@ -1008,10 +677,8 @@ class GEN(nn.Module):
                     learn_msg_scale=True
                 )
             )
-            # Thêm BatchNorm cho mỗi hidden layer
             self.norms.append(nn.BatchNorm1d(hidden_channels))
 
-        # Output layer
         self.conv_out = GENConv(
             hidden_channels,
             out_channels,
@@ -1021,7 +688,6 @@ class GEN(nn.Module):
             msg_norm=True,
             learn_msg_scale=True
         )
-        # Thêm BatchNorm trước layer cuối
         self.last_norm = nn.BatchNorm1d(hidden_channels)
 
     def reset_parameters(self):
@@ -1034,36 +700,8 @@ class GEN(nn.Module):
         self.conv_out.reset_parameters()
 
     def forward(self, x, edge_index):
-        # Encode input
         x = self.node_encoder(x)
 
-        # Hidden layers (Pre-activation + Residual: Norm -> ReLU -> Drop -> Conv -> +)
-        for i, conv in enumerate(self.convs):
-            x_res = x
-
-            x = self.norms[i](x) # Chuẩn hóa trước
-            x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
-
-            x = conv(x, edge_index)
-
-            # Residual
-            x = x + x_res
-
-        # Final layer preparation
-        x = self.last_norm(x)
-        x = F.relu(x)
-        x = F.dropout(x, p=self.dropout, training=self.training)
-
-        out = self.conv_out(x, edge_index)
-
-        return out
-
-    def feature_list(self, x, edge_index):
-        # Encode input node features
-        x = self.node_encoder(x)
-
-        # Chạy qua các lớp ẩn (Pre-activation + Residual: Norm -> ReLU -> Drop -> Conv -> +)
         for i, conv in enumerate(self.convs):
             x_res = x
 
@@ -1073,21 +711,38 @@ class GEN(nn.Module):
 
             x = conv(x, edge_index)
 
-            # Cộng Residual connection
             x = x + x_res
 
-        # Lớp chuẩn bị cuối cùng (trước khi ra output)
         x = self.last_norm(x)
         x = F.relu(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
 
-        # 🔥 BƯỚC QUAN TRỌNG 1: L2-Normalize để khóa giới hạn khoảng cách (chống bùng nổ Loss OCC)
+        out = self.conv_out(x, edge_index)
+
+        return out
+
+    def feature_list(self, x, edge_index):
+        x = self.node_encoder(x)
+
+        for i, conv in enumerate(self.convs):
+            x_res = x
+
+            x = self.norms[i](x)
+            x = F.relu(x)
+            x = F.dropout(x, p=self.dropout, training=self.training)
+
+            x = conv(x, edge_index)
+
+            x = x + x_res
+
+        x = self.last_norm(x)
+        x = F.relu(x)
+        x = F.dropout(x, p=self.dropout, training=self.training)
+
         emb = F.normalize(x, p=2, dim=1)
 
-        # Đẩy qua lớp output để lấy điểm số logits
         out = self.conv_out(x, edge_index)
         
-        # 🔥 BƯỚC QUAN TRỌNG 2: Trả về out (logits) TRƯỚC, emb (embedding) SAU để tránh lỗi CUDA
         return out, [emb]
 
 

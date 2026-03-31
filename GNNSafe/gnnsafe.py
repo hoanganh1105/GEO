@@ -6,6 +6,27 @@ from torch_geometric.utils import degree
 from backbone import *
 import numpy as np
 from loss import loss_function
+
+
+
+class MLPFusion(nn.Module):
+    def __init__(self, hidden_dim=16):
+        super(MLPFusion, self).__init__()
+        self.mlp = nn.Sequential(
+            nn.Linear(3, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1),
+            nn.Sigmoid() 
+        )
+
+    def forward(self, l_nll, l_energy, l_one_class):
+        if l_nll.dim() == 1:
+            l_nll = l_nll.unsqueeze(1)
+            l_energy = l_energy.unsqueeze(1)
+            l_one_class = l_one_class.unsqueeze(1)
+        x = torch.cat([l_nll, l_energy, l_one_class], dim=-1)
+        return self.mlp(x)
+
 class GNNSafe(nn.Module):
     '''
     The model class of energy-based models for out-of-distribution detection
@@ -42,6 +63,7 @@ class GNNSafe(nn.Module):
             raise NotImplementedError
         self.center = None 
         self.radius = nn.Parameter(torch.tensor(0.0))
+        self.fusion = MLPFusion(hidden_dim=16)
     
     def init_center(self, dataset_ind, device):
         """Khởi tạo tâm c dựa trên giá trị trung bình của các node training"""
@@ -81,16 +103,65 @@ class GNNSafe(nn.Module):
         return e.squeeze(1)
 
     def detect(self, dataset, node_idx, device, args):
-        '''return negative energy, a vector for all input nodes'''
+        '''
+        Return anomaly score for all input nodes.
+        By default, it returns the negative energy (or propagated energy).
+        If args.use_mlp_fusion is enabled, it utilizes the MLP-based late-fusion 
+        mechanism to combine L_NLL, L_energy, and L_one-class into a single scalar score.
+        '''
         x, edge_index = dataset.x.to(device), dataset.edge_index.to(device)
+        
+        # =====================================================================
+        # OPTIONAL FEATURE: MLP-based Score Fusion (Enabled via args)
+        # =====================================================================
+        if hasattr(args, 'use_mlp_fusion') and args.use_mlp_fusion:
+            # 1. Forward pass to obtain both logits and latent embeddings
+            if hasattr(args, 'use_occ') and args.use_occ:
+                logits, out_features = self.encoder.feature_list(x, edge_index)
+                embeddings = out_features[-1]
+            else:
+                logits = self.encoder(x, edge_index)
+                embeddings = None
+                
+            # 2. Compute Negative Log-Likelihood (L_NLL)
+            # Since test labels are unavailable, we use the negative maximum log-probability as a proxy
+            log_probs = F.log_softmax(logits, dim=-1)
+            l_nll_node = -torch.max(log_probs, dim=-1)[0]
+            
+            # 3. Compute Energy-based Density (L_energy)
+            if args.dataset in ('proteins', 'ppi'): # for multi-label binary classification
+                logits_tmp = torch.stack([logits, torch.zeros_like(logits)], dim=2)
+                l_energy_node = - args.T * torch.logsumexp(logits_tmp / args.T, dim=-1).sum(dim=1)
+            else: # for single-label multi-class classification
+                l_energy_node = - args.T * torch.logsumexp(logits / args.T, dim=-1)
+                
+            if args.use_prop: # apply energy belief propagation
+                l_energy_node = self.propagation(l_energy_node, edge_index, args.K, args.alpha)
+                
+            # 4. Compute Spatial Geometric Distance (L_one-class)
+            # Calculated as the squared Euclidean distance to the hypersphere center
+            if embeddings is not None and getattr(self, 'center', None) is not None:
+                l_occ_node = torch.sum((embeddings - self.center)**2, dim=1)
+            else:
+                l_occ_node = torch.zeros_like(l_energy_node)
+                
+            # 5. Fuse the distinct scalar scores using the Multi-Layer Perceptron
+            anomaly_scores = self.fusion(l_nll_node, l_energy_node, l_occ_node)
+            return anomaly_scores[node_idx].squeeze()
+
+        # =====================================================================
+        # DEFAULT BEHAVIOR: Standard Energy/Propagation Score
+        # =====================================================================
         logits = self.encoder(x, edge_index)
         if args.dataset in ('proteins', 'ppi'): # for multi-label binary classification
             logits = torch.stack([logits, torch.zeros_like(logits)], dim=2)
             neg_energy = args.T * torch.logsumexp(logits / args.T, dim=-1).sum(dim=1)
         else: # for single-label multi-class classification
             neg_energy = args.T * torch.logsumexp(logits / args.T, dim=-1)
+            
         if args.use_prop: # use energy belief propagation
             neg_energy = self.propagation(neg_energy, edge_index, args.K, args.alpha)
+            
         return neg_energy[node_idx]
 
     def loss_compute(self, dataset_ind, dataset_ood, criterion, device, args):

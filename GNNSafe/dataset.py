@@ -174,15 +174,6 @@ def create_sbm_dataset(data, p_ii=1.5, p_ij=0.5):
     dataset = Data(x=data.x, edge_index=edge_index, y=data.y)
     dataset.node_idx = torch.arange(dataset.num_nodes)
 
-    # if hasattr(data, 'train_mask'):
-    #     tensor_split_idx = {}
-    #     idx = torch.arange(data.num_nodes)
-    #     tensor_split_idx['train'] = idx[data.train_mask]
-    #     tensor_split_idx['valid'] = idx[data.val_mask]
-    #     tensor_split_idx['test'] = idx[data.test_mask]
-    #
-    #     dataset.splits = tensor_split_idx
-
     return dataset
 
 def create_feat_noise_dataset(data):
@@ -196,15 +187,6 @@ def create_feat_noise_dataset(data):
     dataset = Data(x=x_new, edge_index=data.edge_index, y=data.y)
     dataset.node_idx = torch.arange(n)
 
-    # if hasattr(data, 'train_mask'):
-    #     tensor_split_idx = {}
-    #     idx = torch.arange(data.num_nodes)
-    #     tensor_split_idx['train'] = idx[data.train_mask]
-    #     tensor_split_idx['valid'] = idx[data.val_mask]
-    #     tensor_split_idx['test'] = idx[data.test_mask]
-    #
-    #     dataset.splits = tensor_split_idx
-
     return dataset
 
 def create_label_noise_dataset(data):
@@ -217,15 +199,6 @@ def create_label_noise_dataset(data):
 
     dataset = Data(x=data.x, edge_index=data.edge_index, y=y_new)
     dataset.node_idx = torch.arange(n)
-
-    # if hasattr(data, 'train_mask'):
-    #     tensor_split_idx = {}
-    #     idx = torch.arange(data.num_nodes)
-    #     tensor_split_idx['train'] = idx[data.train_mask]
-    #     tensor_split_idx['valid'] = idx[data.val_mask]
-    #     tensor_split_idx['test'] = idx[data.test_mask]
-    #
-    #     dataset.splits = tensor_split_idx
 
     return dataset
 
