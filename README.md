@@ -92,23 +92,7 @@ We evaluate GEO on four benchmark datasets under multiple OOD settings:
 
 ## 🚀 Usage
 
-### 1. Reproduce Main Results
-
-To reproduce all results (Table 1):
-
-```
-python run_all.py
-```
-
-- Runs all backbones: **GCN, GAT, GEN**  
-- Outputs results to:
-  ```
-  results/bang_ket_qua_so_sanh.csv
-  ```
-
----
-
-### 2. Run Individual Experiments
+### 1. Run Individual Experiments
 
 Example: Full GEO (Energy + OCC + Propagation) on Cora (Feature OOD)
 
